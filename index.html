@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Suivi Scolaire</title>
+
+    <style>
+        :root {
+            --bg: #F5F5F7;
+            --card: #FFFFFF;
+            --text: #1C1C1E;
+            --subtext: #6E6E73;
+            --border: #E3E3E6;
+            --input-bg: #F0F0F2;
+            --accent: #3D5AFE;
+            --accent-contrast: #FFFFFF;
+            --danger: #D64545;
+            --danger-bg: rgba(214, 69, 69, 0.1);
+            --success: #1E9E5A;
+            --success-bg: rgba(30, 158, 90, 0.1);
+            --warn: #B8860B;
+            --overlay: rgba(0, 0, 0, 0.4);
+        }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #121214;
+                --card: #1C1C1F;
+                --text: #F2F2F3;
+                --subtext: #9A9AA0;
+                --border: #2E2E32;
+                --input-bg: #26262A;
+                --accent: #6C87FF;
+                --accent-contrast: #0B0B0C;
+                --overlay: rgba(0, 0, 0, 0.6);
+            }
+        }
+        :root[data-theme="dark"] {
+            --bg: #121214;
+            --card: #1C1C1F;
+            --text: #F2F2F3;
+            --subtext: #9A9AA0;
+            --border: #2E2E32;
+            --input-bg: #26262A;
+            --accent: #6C87FF;
+            --accent-contrast: #0B0B0C;
+            --overlay: rgba(0, 0, 0, 0.6);
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px 16px 40px;
+            display: flex;
+            justify-content: center;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container { width: 100%; max-width: 480px; }
+
+        .app-title { font-size: 20px; font-weight: 700; margin: 0 0 16px 2px; }
+
+        /* --- Sélecteur d'enfant --- */
+        .child-switcher { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; margin-bottom: 14px; }
+        .child-pill { flex: 0 0 auto; background: var(--card); border: 1px solid var(--border); color: var(--subtext); padding: 7px 14px; border-radius: 18px; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; }
+        .child-pill.active { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
+        .child-pill.add-pill { color: var(--accent); border-style: dashed; background: transparent; }
+
+        /* --- Cartes génériques --- */
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+
+        /* --- Profil (repliable) --- */
+        .profile-toggle { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+        .profile-toggle-label { font-size: 13px; font-weight: 600; color: var(--subtext); }
+        .chevron { font-size: 12px; color: var(--subtext); transition: transform 0.15s; }
+        .chevron.open { transform: rotate(180deg); }
+        .profile-body { display: none; margin-top: 14px; }
+        .profile-body.open { display: block; }
+        .field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 10px; }
+
+        label.field-label { font-size: 11px; font-weight: 600; color: var(--subtext); display: block; margin-bottom: 4px; }
+
+        input, select {
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 14px;
+            color: var(--text);
+            outline: none;
+            width: 100%;
+            font-family: inherit;
+        }
+        input:focus, select:focus { border-color: var(--accent); }
+
+        /* --- Dashboard moyenne --- */
+        .dashboard { text-align: center; padding: 22px 16px; }
+        .dashboard-label { font-size: 12px; font-weight: 600; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.4px; }
+        .dashboard-value { font-size: 44px; font-weight: 700; letter-spacing: -1px; line-height: 1.1; margin-top: 2px; }
+        .dashboard-sub { font-size: 12px; color: var(--subtext); margin-top: 6px; }
+
+        /* --- Onglets Notes / Objectifs --- */
+        .tab-bar { display: flex; background: var(--input-bg); border-radius: 12px; padding: 3px; margin-bottom: 14px; }
+        .tab-btn { flex: 1; background: transparent; border: none; padding: 9px 0; font-size: 13px; font-weight: 600; color: var(--subtext); border-radius: 9px; cursor: pointer; font-family: inherit; }
+        .tab-btn.active { background: var(--card); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+
+        /* --- Liste de notes --- */
+        .note-row { display: flex; align-items: center; gap: 10px; padding: 12px 4px; border-bottom: 1px solid var(--border); cursor: pointer; }
+        .note-row:last-child { border-bottom: none; }
+        .note-main { flex: 1; min-width: 0; }
+        .note-matiere { font-weight: 600; font-size: 14px; }
+        .note-meta { font-size: 12px; color: var(--subtext); margin-top: 1px; }
+        .note-badge { font-weight: 700; font-size: 15px; padding: 4px 9px; border-radius: 8px; white-space: nowrap; }
+        .note-badge.high { color: var(--success); background: var(--success-bg); }
+        .note-badge.mid { color: var(--warn); background: rgba(184,134,11,0.1); }
+        .note-badge.low { color: var(--danger); background: var(--danger-bg); }
+        .trend { font-size: 13px; width: 12px; text-align: center; color: var(--subtext); }
+        .trend.up { color: var(--success); }
+        .trend.down { color: var(--danger); }
+
+        .empty-notes { text-align: center; padding: 20px 8px; color: var(--subtext); font-size: 13px; }
+
+        /* --- Boutons --- */
+        button { font-family: inherit; }
+        .btn { width: 100%; border: none; border-radius: 12px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; }
+        .btn-primary { background: var(--accent); color: var(--accent-contrast); }
+        .btn-secondary { background: var(--input-bg); color: var(--text); }
+        .btn-danger { background: var(--danger-bg); color: var(--danger); }
+        .btn-text { background: transparent; color: var(--accent); padding: 10px; font-weight: 600; font-size: 13px; }
+        .btn-row { display: flex; gap: 8px; margin-top: 6px; }
+        .btn-row .btn { margin-top: 0; }
+
+        /* --- Formulaire modal (ajout / édition de note) --- */
+        .modal-overlay { position: fixed; inset: 0; background: var(--overlay); display: none; align-items: flex-end; justify-content: center; z-index: 50; }
+        .modal-overlay.open { display: flex; }
+        .modal-sheet { background: var(--card); width: 100%; max-width: 480px; border-radius: 20px 20px 0 0; padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); }
+        .modal-title { font-size: 16px; font-weight: 700; margin: 0 0 14px; }
+
+        /* --- Objectifs & simulation --- */
+        .slider-block { background: var(--input-bg); padding: 14px; border-radius: 12px; margin-bottom: 10px; }
+        .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; font-weight: 600; }
+        .target-val { color: var(--accent); font-weight: 700; }
+        input[type="range"] { -webkit-appearance: none; width: 100%; height: 5px; border-radius: 3px; background: var(--border); outline: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); cursor: pointer; }
+
+        .info-box { background: var(--input-bg); border-radius: 10px; padding: 11px 12px; font-size: 13px; line-height: 1.45; margin-top: 8px; }
+        .info-box.success { background: var(--success-bg); color: var(--success); }
+        .muted-note { font-size: 11px; color: var(--subtext); margin-top: 8px; line-height: 1.4; }
+
+        .simu-group { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+        .simu-group > * { flex: 1; min-width: 110px; }
+
+        .link-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+        .btn-link { display: inline-block; background: var(--input-bg); color: var(--text); text-decoration: none; padding: 8px 12px; border-radius: 10px; font-size: 12px; font-weight: 600; }
+
+        .section-title { font-size: 13px; font-weight: 700; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.4px; margin: 0 0 10px; }
+
+        .toast-msg {
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+            background: var(--text); color: var(--bg);
+            padding: 10px 18px; border-radius: 20px; font-weight: 600; font-size: 13px;
+            display: none; z-index: 999; max-width: 90vw; text-align: center;
+        }
+        .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+        .topbar .app-title { margin: 0 0 0 2px; }
+        .btn-text { width: auto; border: none; cursor: pointer; }
+        .info-box.danger { background: var(--danger-bg); color: var(--danger); margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="topbar">
+        <h1 class="app-title">Suivi Scolaire</h1>
+        <button class="btn-text" id="btn-signout" style="display:none;" onclick="deconnexion()">Déconnexion</button>
+    </div>
+
+    <div class="muted-note" id="loading">Chargement…</div>
+
+    <div class="card" id="config-card" style="display:none;">
+        <h2 class="section-title">Configuration manquante</h2>
+        <div class="info-box">Renseignez l'objet <strong>firebaseConfig</strong> en haut du script de ce fichier (voir le README).</div>
+    </div>
+
+    <!-- Connexion -->
+    <div class="card" id="auth-card" style="display:none;">
+        <h2 class="section-title" id="auth-title">Connexion</h2>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+            <input type="email" id="auth-email" placeholder="Adresse e-mail" aria-label="Adresse e-mail" autocomplete="email">
+            <input type="password" id="auth-pass" placeholder="Mot de passe (6 caractères minimum)" aria-label="Mot de passe" autocomplete="current-password">
+        </div>
+        <div class="info-box danger" id="auth-error" style="display:none;"></div>
+        <button class="btn btn-primary" style="margin-top:12px;" id="auth-submit" onclick="soumettreAuth()">Se connecter</button>
+        <button class="btn btn-text" id="auth-switch" onclick="basculerModeAuth()">Créer un compte</button>
+    </div>
+
+    <!-- Compte non rattaché -->
+    <div class="card" id="unlinked-card" style="display:none;">
+        <h2 class="section-title">Compte non rattaché</h2>
+        <div class="info-box">Aucun profil élève n'est rattaché à ce compte. Transmettez l'identifiant ci-dessous au parent pour qu'il le renseigne dans le profil.</div>
+        <input type="text" id="my-uid" readonly style="margin-top:10px;" aria-label="Identifiant du compte">
+        <button class="btn btn-secondary" style="margin-top:8px;" onclick="copierUid()">Copier l'identifiant</button>
+    </div>
+
+    <div class="child-switcher" id="child-switcher" style="display:none;"></div>
+
+    <!-- Aucun enfant (parent) -->
+    <div class="card" id="empty-state" style="display:none;">
+        <p class="muted-note" style="margin:0 0 10px;">Aucun profil pour l'instant. Ajoutez le prénom d'un élève pour commencer.</p>
+        <div style="display:flex; gap:8px;">
+            <input type="text" id="new-child-name" placeholder="Prénom de l'élève" aria-label="Prénom du nouvel élève">
+            <button class="btn btn-primary" style="width:auto; white-space:nowrap;" onclick="ajouterEnfant()">Ajouter</button>
+        </div>
+    </div>
+
+    <div id="main-content" style="display:none;">
+
+        <!-- Profil (repliable) -->
+        <div class="card">
+            <div class="profile-toggle" onclick="toggleProfil()">
+                <span class="profile-toggle-label" id="profile-toggle-text">Profil</span>
+                <span class="chevron" id="profile-chevron">▾</span>
+            </div>
+            <div class="profile-body" id="profile-body">
+                <div class="field-row">
+                    <div>
+                        <label class="field-label" for="prenom">Prénom</label>
+                        <input type="text" id="prenom" placeholder="Prénom" oninput="sauvegarderProfilDebounce()">
+                    </div>
+                    <div>
+                        <label class="field-label" for="nom">Nom</label>
+                        <input type="text" id="nom" placeholder="Nom" oninput="sauvegarderProfilDebounce()">
+                    </div>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label class="field-label" for="classe">Niveau scolaire</label>
+                    <select id="classe" onchange="sauvegarderProfilImmediat(); genererLiensRevision();">
+                        <option value="">Niveau Scolaire</option>
+                        <optgroup label="Collège">
+                            <option value="6ème">6ème</option>
+                            <option value="5ème">5ème</option>
+                            <option value="4ème">4ème</option>
+                            <option value="3ème">3ème</option>
+                        </optgroup>
+                        <optgroup label="Lycée Général & Technologique">
+                            <option value="2de Générale">2de Générale</option>
+                            <option value="1ère Générale">1ère Générale</option>
+                            <option value="1ère STMG">1ère STMG</option>
+                            <option value="1ère STI2D">1ère STI2D</option>
+                            <option value="1ère ST2S">1ère ST2S</option>
+                            <option value="Terminale Générale">Terminale Générale</option>
+                            <option value="Terminale STMG">Terminale STMG</option>
+                            <option value="Terminale STI2D">Terminale STI2D</option>
+                        </optgroup>
+                        <optgroup label="Lycée Professionnel">
+                            <option value="2de Pro">2de Professionnelle</option>
+                            <option value="1ère CAP">1ère CAP</option>
+                            <option value="2ème CAP">2ème CAP</option>
+                            <option value="1ère Bac Pro">1ère Bac Pro</option>
+                            <option value="Terminale Bac Pro">Terminale Bac Pro</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="parent-only" style="margin-bottom: 10px;">
+                    <label class="field-label" for="uid-eleve">Identifiant du compte élève</label>
+                    <input type="text" id="uid-eleve" placeholder="Collez ici l'identifiant affiché sur le compte de l'élève" oninput="sauvegarderProfilDebounce()">
+                </div>
+                <button class="btn btn-danger parent-only" onclick="supprimerEnfant()">Supprimer ce profil élève</button>
+            </div>
+        </div>
+
+        <!-- Dashboard moyenne -->
+        <div class="card dashboard">
+            <div class="dashboard-label">Moyenne générale</div>
+            <div class="dashboard-value" id="moyenne-generale">-- / 20</div>
+            <div class="dashboard-sub" id="dashboard-objectif-sub">Objectif : 14.0 / 20</div>
+        </div>
+
+        <!-- Onglets -->
+        <div class="tab-bar">
+            <button class="tab-btn active" id="tab-btn-notes" onclick="changerOnglet('notes')">Notes</button>
+            <button class="tab-btn" id="tab-btn-objectifs" onclick="changerOnglet('objectifs')">Objectifs &amp; Simulation</button>
+        </div>
+
+        <div id="panel-notes">
+            <div class="card">
+                <h2 class="section-title">Relevé de notes</h2>
+                <div id="notes-list"></div>
+                <div class="empty-notes" id="notes-empty" style="display:none;">Aucune note pour l'instant.</div>
+                <button class="btn btn-secondary" style="margin-top: 10px;" onclick="ouvrirFormulaireNote()">+ Ajouter une note</button>
+            </div>
+        </div>
+
+        <div id="panel-objectifs" style="display:none;">
+            <div class="card">
+                <h2 class="section-title">Moyenne cible</h2>
+                <div class="slider-block">
+                    <div class="slider-header">
+                        <span>Objectif</span>
+                        <span class="target-val" id="target-display">14.0 / 20</span>
+                    </div>
+                    <input type="range" id="objectif-slider" min="0" max="20" step="0.5" value="14" aria-label="Moyenne cible" oninput="mettreAJourSliderLocal(this.value)" onchange="mettreAJourSliderCommit(this.value)">
+                </div>
+                <div class="info-box success" id="projection-a-texte">...</div>
+            </div>
+
+            <div class="card">
+                <h2 class="section-title">Simuler un devoir</h2>
+                <div class="simu-group">
+                    <select id="simu-matiere-select" aria-label="Matière simulée" onchange="gestionMatiereSimu(this.value)">
+                        <option value="">Matière...</option>
+                    </select>
+                    <input type="text" id="simu-matiere-custom" placeholder="Autre matière..." aria-label="Autre matière" style="display: none;" oninput="genererLiensRevision()">
+                </div>
+                <div class="simu-group" style="margin-top: 8px;">
+                    <input type="text" id="simu-theme" placeholder="Thème ou chapitre" aria-label="Thème ou chapitre" oninput="genererLiensRevision()">
+                </div>
+                <div class="simu-group" style="margin-top: 8px;">
+                    <input type="number" id="simu-note" min="0" max="20" placeholder="Note visée /20" aria-label="Note visée" step="0.5" oninput="calculerToutesProjections()">
+                    <input type="number" id="simu-coeff" min="0.5" max="10" placeholder="Coeff" aria-label="Coefficient simulé" value="1" step="0.5" oninput="calculerToutesProjections()">
+                </div>
+                <div class="info-box" id="projection-b-texte">Saisissez une note et un coeff pour simuler l'impact.</div>
+
+                <button class="btn btn-primary" style="margin-top: 12px;" onclick="ouvrirFicheClaude()">Un coup de pouce ? Fiche de révision avec Claude</button>
+
+                <h2 class="section-title" style="margin-top: 16px;">Pour aller plus loin</h2>
+                <div class="link-row">
+                    <a href="#" id="link-lumni" target="_blank" rel="noopener" class="btn-link">Lumni</a>
+                    <a href="#" id="link-kartable" target="_blank" rel="noopener" class="btn-link">Kartable</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Modal ajout / édition de note -->
+<div class="modal-overlay" id="note-modal" onclick="fermerFormulaireNoteSiFond(event)">
+    <div class="modal-sheet">
+        <h3 class="modal-title" id="note-modal-title">Ajouter une note</h3>
+
+        <div style="margin-bottom: 10px;">
+            <label class="field-label" for="form-matiere">Matière</label>
+            <select id="form-matiere" onchange="gestionMatiereForm(this.value)"></select>
+            <input type="text" id="form-matiere-custom" placeholder="Nom de la matière" aria-label="Nom de la matière" style="display:none; margin-top: 8px;">
+        </div>
+
+        <div class="field-row">
+            <div>
+                <label class="field-label" for="form-note">Note /20</label>
+                <input type="number" id="form-note" min="0" max="20" step="0.5">
+            </div>
+            <div>
+                <label class="field-label" for="form-coeff">Coefficient</label>
+                <input type="number" id="form-coeff" min="0.5" max="10" step="0.5">
+            </div>
+        </div>
+
+        <div class="btn-row">
+            <button class="btn btn-primary" onclick="enregistrerFormulaireNote()">Enregistrer</button>
+            <button class="btn btn-secondary" onclick="fermerFormulaireNote()">Annuler</button>
+        </div>
+        <button class="btn btn-danger" style="margin-top: 8px; display:none;" id="form-delete-btn" onclick="supprimerDepuisFormulaire()">Supprimer cette note</button>
+    </div>
+</div>
+
+<div class="toast-msg" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+    getAuth, onAuthStateChanged, signInWithEmailAndPassword,
+    createUserWithEmailAndPassword, signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+    getFirestore, doc, getDoc, collection, query, where, orderBy,
+    onSnapshot, addDoc, updateDoc, deleteDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ============================================================
+// À REMPLIR : configuration de l'application web Firebase
+// (Console Firebase > Paramètres du projet > Vos applications)
+// ============================================================
+const firebaseConfig = {
+    apiKey: "REMPLACER",
+    authDomain: "REMPLACER.firebaseapp.com",
+    projectId: "REMPLACER",
+    appId: "REMPLACER"
+};
+
+const MATIERES_PAR_DEFAULT = [
+    "Mathématiques", "Français", "Histoire-Géographie", "SVT",
+    "Physique-Chimie", "Anglais", "Espagnol", "Allemand",
+    "Philosophie", "Enseignement Scientifique", "SES", "EPS"
+];
+
+// --- État ---
+let app, auth, db;
+let user = null;
+let isParent = false;
+let unsubChildren = null;
+let childrenMap = {};
+let childOrder = [];
+let modeInscription = false;
+let profilWriteTimer = null;
+let editingNoteIndex = null;
+
+// État local à l'appareil (préférences d'affichage uniquement)
+let local = { activeChildId: null, activeTab: "notes", profilOuvert: false };
+function loadLocal() {
+    try { local = { ...local, ...JSON.parse(localStorage.getItem("suiviScolaireLocalV4") || "{}") }; } catch (e) {}
+}
+function saveLocal() { localStorage.setItem("suiviScolaireLocalV4", JSON.stringify(local)); }
+
+const $ = id => document.getElementById(id);
+function show(id, visible, display = "block") { $(id).style.display = visible ? display : "none"; }
+
+// --- Démarrage ---
+window.addEventListener("load", () => {
+    loadLocal();
+    remplirSelectMatieres($("simu-matiere-select"), true);
+    appliquerOnglet();
+    appliquerProfilVisuel();
+
+    if (firebaseConfig.apiKey === "REMPLACER") {
+        show("loading", false);
+        show("config-card", true);
+        return;
+    }
+
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+
+    onAuthStateChanged(auth, async u => {
+        user = u;
+        if (unsubChildren) { unsubChildren(); unsubChildren = null; }
+        resetVues();
+        show("loading", false);
+
+        if (!u) {
+            show("btn-signout", false);
+            show("auth-card", true);
+            return;
+        }
+
+        show("btn-signout", true);
+        show("auth-card", false);
+        await determinerRole();
+        ecouterProfils();
+    });
+});
+
+function resetVues() {
+    childrenMap = {}; childOrder = [];
+    ["unlinked-card", "child-switcher", "empty-state", "main-content"].forEach(id => show(id, false));
+}
+
+async function determinerRole() {
+    isParent = false;
+    try {
+        const snap = await getDoc(doc(db, "family", "config"));
+        const uids = snap.exists() ? (snap.data().parentUids || []) : [];
+        isParent = uids.includes(user.uid);
+    } catch (e) { console.error(e); }
+    document.querySelectorAll(".parent-only").forEach(el => el.style.display = isParent ? "" : "none");
+}
+
+function ecouterProfils() {
+    const col = collection(db, "children");
+    const q = isParent ? query(col, orderBy("prenom")) : query(col, where("uid", "==", user.uid));
+
+    unsubChildren = onSnapshot(q, snap => {
+        childrenMap = {}; childOrder = [];
+        let docs = snap.docs.map(d => ({ id: d.id, data: d.data() }));
+        if (isParent) docs.sort((a, b) => (a.data.prenom || "").localeCompare(b.data.prenom || "", "fr"));
+        docs.forEach(d => { childrenMap[d.id] = d.data; childOrder.push(d.id); });
+
+        if (!local.activeChildId || !childrenMap[local.activeChildId]) {
+            local.activeChildId = childOrder[0] || null;
+            saveLocal();
+        }
+        renderChildSwitcher();
+        renderActiveChild();
+    }, err => {
+        console.error(err);
+        afficherToast(err.code === "permission-denied" ? "Accès refusé." : "Erreur de synchronisation.");
+    });
+}
+
+// --- Connexion ---
+function basculerModeAuth() {
+    modeInscription = !modeInscription;
+    $("auth-title").innerText = modeInscription ? "Créer un compte" : "Connexion";
+    $("auth-submit").innerText = modeInscription ? "Créer le compte" : "Se connecter";
+    $("auth-switch").innerText = modeInscription ? "J'ai déjà un compte" : "Créer un compte";
+    $("auth-pass").autocomplete = modeInscription ? "new-password" : "current-password";
+    show("auth-error", false);
+}
+
+function messageErreurAuth(code) {
+    switch (code) {
+        case "auth/invalid-credential":
+        case "auth/wrong-password":
+        case "auth/user-not-found": return "Adresse e-mail ou mot de passe incorrect.";
+        case "auth/email-already-in-use": return "Un compte existe déjà avec cette adresse.";
+        case "auth/weak-password": return "Mot de passe trop court (6 caractères minimum).";
+        case "auth/invalid-email": return "Adresse e-mail invalide.";
+        case "auth/too-many-requests": return "Trop de tentatives — réessayez dans quelques minutes.";
+        case "auth/operation-not-allowed": return "La connexion par e-mail n'est pas activée dans Firebase.";
+        default: return "Erreur de connexion — réessayez.";
+    }
+}
+
+async function soumettreAuth() {
+    const email = $("auth-email").value.trim();
+    const pass = $("auth-pass").value;
+    show("auth-error", false);
+    if (!email || !pass) { afficherErreurAuth("Renseignez l'adresse e-mail et le mot de passe."); return; }
+    try {
+        if (modeInscription) await createUserWithEmailAndPassword(auth, email, pass);
+        else await signInWithEmailAndPassword(auth, email, pass);
+        $("auth-pass").value = "";
+    } catch (e) { afficherErreurAuth(messageErreurAuth(e.code)); }
+}
+function afficherErreurAuth(msg) { $("auth-error").innerText = msg; show("auth-error", true); }
+async function deconnexion() { await signOut(auth); }
+
+async function copierUid() {
+    try { await navigator.clipboard.writeText($("my-uid").value); afficherToast("Identifiant copié"); }
+    catch (e) { $("my-uid").select(); }
+}
+
+// --- Sélecteur d'enfant / vues ---
+function renderChildSwitcher() {
+    const switcher = $("child-switcher");
+
+    if (childOrder.length === 0) {
+        show("child-switcher", false);
+        show("main-content", false);
+        if (isParent) { show("empty-state", true); show("unlinked-card", false); }
+        else { show("empty-state", false); $("my-uid").value = user.uid; show("unlinked-card", true); }
+        return;
+    }
+
+    show("empty-state", false);
+    show("unlinked-card", false);
+    show("main-content", true);
+
+    if (!isParent) { show("child-switcher", false); return; }
+
+    show("child-switcher", true, "flex");
+    switcher.innerHTML = "";
+    childOrder.forEach(id => {
+        const pill = document.createElement("button");
+        pill.className = "child-pill" + (id === local.activeChildId ? " active" : "");
+        pill.innerText = childrenMap[id].prenom || "Sans nom";
+        pill.onclick = () => { local.activeChildId = id; saveLocal(); renderChildSwitcher(); renderActiveChild(); };
+        switcher.appendChild(pill);
+    });
+    const addPill = document.createElement("button");
+    addPill.className = "child-pill add-pill";
+    addPill.innerText = "+ Enfant";
+    addPill.onclick = () => {
+        const nom = prompt("Prénom du nouvel élève :");
+        if (nom && nom.trim()) ajouterEnfantNomme(nom.trim());
+    };
+    switcher.appendChild(addPill);
+}
+
+async function ajouterEnfant() {
+    const nom = $("new-child-name").value.trim();
+    if (!nom) { afficherToast("Indiquez un prénom."); return; }
+    await ajouterEnfantNomme(nom);
+    $("new-child-name").value = "";
+}
+
+async function ajouterEnfantNomme(prenom) {
+    try {
+        const ref = await addDoc(collection(db, "children"), {
+            prenom, nom: "", classe: "", uid: "", notes: [], objectif: 14
+        });
+        local.activeChildId = ref.id;
+        saveLocal();
+    } catch (e) { afficherToast("Création impossible."); }
+}
+
+async function supprimerEnfant() {
+    if (!isParent || !local.activeChildId) return;
+    const c = childrenMap[local.activeChildId];
+    if (!confirm(`Supprimer définitivement le profil de ${c.prenom} ? Cette action est irréversible.`)) return;
+    await deleteDoc(doc(db, "children", local.activeChildId));
+    local.activeChildId = null;
+    saveLocal();
+}
+
+function getActiveChild() { return local.activeChildId ? childrenMap[local.activeChildId] : null; }
+function refActive() { return doc(db, "children", local.activeChildId); }
+
+function renderActiveChild() {
+    const c = getActiveChild();
+    if (!c) return;
+    if (document.activeElement?.id !== "prenom") $("prenom").value = c.prenom || "";
+    if (document.activeElement?.id !== "nom") $("nom").value = c.nom || "";
+    if (document.activeElement?.id !== "classe") $("classe").value = c.classe || "";
+    if (document.activeElement?.id !== "uid-eleve") $("uid-eleve").value = c.uid || "";
+    $("profile-toggle-text").innerText = c.prenom ? `Profil de ${c.prenom}` : "Profil";
+
+    const objVal = c.objectif ?? 14;
+    if (document.activeElement?.id !== "objectif-slider") {
+        $("objectif-slider").value = objVal;
+        $("target-display").innerText = parseFloat(objVal).toFixed(1) + " / 20";
+    }
+    genererLiensRevision();
+    afficherNotes();
+}
+
+// --- Profil ---
+function toggleProfil() { local.profilOuvert = !local.profilOuvert; saveLocal(); appliquerProfilVisuel(); }
+function appliquerProfilVisuel() {
+    $("profile-body").classList.toggle("open", local.profilOuvert);
+    $("profile-chevron").classList.toggle("open", local.profilOuvert);
+}
+function sauvegarderProfilDebounce() {
+    clearTimeout(profilWriteTimer);
+    profilWriteTimer = setTimeout(sauvegarderProfilImmediat, 600);
+}
+async function sauvegarderProfilImmediat() {
+    if (!local.activeChildId) return;
+    const data = { prenom: $("prenom").value, nom: $("nom").value, classe: $("classe").value };
+    if (isParent) data.uid = $("uid-eleve").value.trim();
+    try { await updateDoc(refActive(), data); } catch (e) { afficherToast("Enregistrement impossible."); }
+}
+
+// --- Onglets ---
+function changerOnglet(onglet) { local.activeTab = onglet; saveLocal(); appliquerOnglet(); }
+function appliquerOnglet() {
+    const surNotes = local.activeTab === "notes";
+    $("tab-btn-notes").classList.toggle("active", surNotes);
+    $("tab-btn-objectifs").classList.toggle("active", !surNotes);
+    show("panel-notes", surNotes);
+    show("panel-objectifs", !surNotes);
+}
+
+// --- Notes & calculs ---
+function getMoyenneGeneraleNumerique() {
+    const c = getActiveChild();
+    if (!c || !c.notes) return 0;
+    let pts = 0, coeffs = 0;
+    c.notes.forEach(i => { pts += i.note * i.coeff; coeffs += i.coeff; });
+    return coeffs > 0 ? pts / coeffs : 0;
+}
+function nomMatiereAffiche(item) {
+    return item.matiere === "AUTRE" ? (item.customMatiere || "Autre") : item.matiere;
+}
+function echapper(t) {
+    return String(t).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+
+function afficherNotes() {
+    const c = getActiveChild();
+    const container = $("notes-list");
+    container.innerHTML = "";
+    if (!c) return;
+
+    const notes = c.notes || [];
+    show("notes-empty", notes.length === 0);
+    const moyenneActuelle = getMoyenneGeneraleNumerique();
+
+    notes.forEach((item, index) => {
+        let badgeClass = "mid";
+        if (item.note >= 14) badgeClass = "high";
+        else if (item.note < 10) badgeClass = "low";
+
+        let trendSymbol = "–", trendClass = "";
+        if (moyenneActuelle > 0) {
+            if (item.note > moyenneActuelle) { trendSymbol = "↑"; trendClass = "up"; }
+            else if (item.note < moyenneActuelle) { trendSymbol = "↓"; trendClass = "down"; }
+        }
+
+        const row = document.createElement("div");
+        row.className = "note-row";
+        row.onclick = () => ouvrirFormulaireNote(index);
+        row.innerHTML = `
+            <div class="note-main">
+                <div class="note-matiere">${echapper(nomMatiereAffiche(item))}</div>
+                <div class="note-meta">Coefficient ${item.coeff}</div>
+            </div>
+            <span class="trend ${trendClass}">${trendSymbol}</span>
+            <span class="note-badge ${badgeClass}">${item.note}/20</span>`;
+        container.appendChild(row);
+    });
+    calculerMoyenne();
+}
+
+function calculerMoyenne() {
+    const c = getActiveChild();
+    let totalPoints = 0, totalCoeffs = 0;
+    (c?.notes || []).forEach(i => { totalPoints += i.note * i.coeff; totalCoeffs += i.coeff; });
+    $("moyenne-generale").innerText = totalCoeffs === 0 ? "-- / 20" : (totalPoints / totalCoeffs).toFixed(2) + " / 20";
+    $("dashboard-objectif-sub").innerText = "Objectif : " + (c?.objectif ?? 14).toFixed(1) + " / 20";
+    calculerToutesProjections(totalCoeffs > 0 ? totalPoints / totalCoeffs : 0, totalCoeffs);
+}
+
+function mettreAJourSliderLocal(valeur) {
+    $("target-display").innerText = parseFloat(valeur).toFixed(1) + " / 20";
+    $("dashboard-objectif-sub").innerText = "Objectif : " + parseFloat(valeur).toFixed(1) + " / 20";
+    calculerToutesProjections();
+}
+async function mettreAJourSliderCommit(valeur) {
+    if (!local.activeChildId) return;
+    try { await updateDoc(refActive(), { objectif: parseFloat(valeur) }); } catch (e) { afficherToast("Enregistrement impossible."); }
+}
+
+function calculerToutesProjections(moyenneActuelle, totalCoeffsActuel) {
+    if (moyenneActuelle === undefined) {
+        let pts = 0, coeffs = 0;
+        (getActiveChild()?.notes || []).forEach(i => { pts += i.note * i.coeff; coeffs += i.coeff; });
+        moyenneActuelle = coeffs > 0 ? pts / coeffs : 0;
+        totalCoeffsActuel = coeffs;
+    }
+    const pointsActuels = moyenneActuelle * totalCoeffsActuel;
+    const objectif = parseFloat($("objectif-slider").value) || 14;
+    const elemA = $("projection-a-texte");
+
+    if (totalCoeffsActuel === 0) {
+        elemA.innerText = "Ajoutez au moins une note pour calculer une projection.";
+    } else if (moyenneActuelle >= objectif) {
+        elemA.innerHTML = `Objectif atteint ! Gardez au moins <strong>${objectif}/20</strong> aux prochains devoirs.`;
+    } else {
+        const noteReq = objectif * (totalCoeffsActuel + 1) - pointsActuels;
+        if (noteReq > 20) {
+            const maxAtteignable = (pointsActuels + 20) / (totalCoeffsActuel + 1);
+            elemA.innerHTML = `Un seul 20/20 (coeff 1) monterait la moyenne à <strong>${maxAtteignable.toFixed(2)}/20</strong>. Plusieurs bonnes notes nécessaires !`;
+        } else {
+            elemA.innerHTML = `Obtenez au moins <strong>${noteReq.toFixed(2)}/20</strong> au prochain devoir (coeff 1) pour atteindre l'objectif.`;
+        }
+    }
+
+    const simuNote = parseFloat($("simu-note").value);
+    const simuCoeff = parseFloat($("simu-coeff").value) || 1;
+    const elemB = $("projection-b-texte");
+    if (!isNaN(simuNote)) {
+        const nouvelleMoyenne = (pointsActuels + simuNote * simuCoeff) / (totalCoeffsActuel + simuCoeff);
+        const diff = nouvelleMoyenne - moyenneActuelle;
+        const signe = diff >= 0 ? "+" : "";
+        const couleur = diff >= 0 ? "var(--success)" : "var(--danger)";
+        elemB.innerHTML = `Avec un <strong>${simuNote}/20</strong> (coeff ${simuCoeff}), la moyenne passe à <strong>${nouvelleMoyenne.toFixed(2)}/20</strong> (<span style="color:${couleur}">${signe}${diff.toFixed(2)} pt</span>).`;
+    } else {
+        elemB.innerText = "Saisissez une note et un coeff pour simuler l'impact.";
+    }
+}
+
+// --- Formulaire note (modal) ---
+function remplirSelectMatieres(selectEl, avecPlaceholder) {
+    selectEl.innerHTML = (avecPlaceholder ? `<option value="">Matière...</option>` : "")
+        + MATIERES_PAR_DEFAULT.map(m => `<option value="${m}">${m}</option>`).join("")
+        + `<option value="AUTRE">Autre...</option>`;
+}
+
+function ouvrirFormulaireNote(index) {
+    editingNoteIndex = typeof index === "number" ? index : null;
+    const c = getActiveChild();
+    const select = $("form-matiere");
+    remplirSelectMatieres(select, false);
+    const custom = $("form-matiere-custom");
+
+    if (editingNoteIndex !== null && c?.notes?.[editingNoteIndex]) {
+        const item = c.notes[editingNoteIndex];
+        $("note-modal-title").innerText = "Modifier la note";
+        select.value = item.matiere;
+        show("form-matiere-custom", item.matiere === "AUTRE");
+        custom.value = item.customMatiere || "";
+        $("form-note").value = item.note;
+        $("form-coeff").value = item.coeff;
+        show("form-delete-btn", true);
+    } else {
+        $("note-modal-title").innerText = "Ajouter une note";
+        select.value = "Mathématiques";
+        show("form-matiere-custom", false);
+        custom.value = "";
+        $("form-note").value = 10;
+        $("form-coeff").value = 1;
+        show("form-delete-btn", false);
+    }
+    $("note-modal").classList.add("open");
+}
+function gestionMatiereForm(v) { show("form-matiere-custom", v === "AUTRE"); }
+function fermerFormulaireNote() { $("note-modal").classList.remove("open"); editingNoteIndex = null; }
+function fermerFormulaireNoteSiFond(e) { if (e.target.id === "note-modal") fermerFormulaireNote(); }
+
+async function enregistrerFormulaireNote() {
+    const c = getActiveChild();
+    if (!c || !local.activeChildId) return;
+    const matiere = $("form-matiere").value;
+    const customMatiere = $("form-matiere-custom").value.trim();
+    const note = parseFloat($("form-note").value);
+    const coeff = parseFloat($("form-coeff").value);
+
+    if (isNaN(note) || note < 0 || note > 20) { afficherToast("Indiquez une note valide entre 0 et 20."); return; }
+    if (isNaN(coeff) || coeff <= 0) { afficherToast("Indiquez un coefficient valide."); return; }
+    if (matiere === "AUTRE" && !customMatiere) { afficherToast("Indiquez le nom de la matière."); return; }
+
+    const notes = [...(c.notes || [])];
+    const nouvelle = { matiere, customMatiere, note, coeff };
+    if (editingNoteIndex !== null) notes[editingNoteIndex] = nouvelle; else notes.push(nouvelle);
+
+    try { await updateDoc(refActive(), { notes }); fermerFormulaireNote(); }
+    catch (e) { afficherToast("Enregistrement impossible."); }
+}
+
+async function supprimerDepuisFormulaire() {
+    const c = getActiveChild();
+    if (!c || editingNoteIndex === null) return;
+    const notes = [...(c.notes || [])];
+    notes.splice(editingNoteIndex, 1);
+    try { await updateDoc(refActive(), { notes }); fermerFormulaireNote(); }
+    catch (e) { afficherToast("Suppression impossible."); }
+}
+
+// --- Simulation / révision ---
+function gestionMatiereSimu(v) { show("simu-matiere-custom", v === "AUTRE"); genererLiensRevision(); }
+function getMatiereSimuSelectionnee() {
+    const v = $("simu-matiere-select").value;
+    return v === "AUTRE" ? $("simu-matiere-custom").value.trim() : v;
+}
+function genererLiensRevision() {
+    const q = encodeURIComponent(`${$("classe").value} ${getMatiereSimuSelectionnee()} ${$("simu-theme").value.trim()}`.trim());
+    $("link-lumni").href = `https://www.lumni.fr/recherche?q=${q}`;
+    $("link-kartable").href = `https://www.kartable.fr/recherche?q=${q}`;
+}
+
+function ouvrirFicheClaude() {
+    const classe = $("classe").value || "Collège/Lycée";
+    const matiere = getMatiereSimuSelectionnee() || "Matière générale";
+    const theme = $("simu-theme").value.trim() || "Révision générale";
+    const prompt = `Génère une fiche de révision express pour un élève de ${classe}.
+Matière : ${matiere}
+Chapitre : ${theme}
+
+Contenu attendu :
+1. Les 3 notions clés indispensables.
+2. Un exemple concret ou une formule essentielle.
+3. L'erreur classique à éviter en évaluation.
+
+Rédige le tout de façon concise, claire et directe.`;
+    window.open("https://claude.ai/new?q=" + encodeURIComponent(prompt), "_blank", "noopener");
+}
+
+function afficherToast(message) {
+    const t = $("toast");
+    t.innerText = message;
+    t.style.display = "block";
+    setTimeout(() => { t.style.display = "none"; }, 3000);
+}
+
+// Exposition pour les gestionnaires inline (onclick, oninput…)
+Object.assign(window, {
+    deconnexion, soumettreAuth, basculerModeAuth, copierUid,
+    ajouterEnfant, supprimerEnfant, toggleProfil,
+    sauvegarderProfilDebounce, sauvegarderProfilImmediat, genererLiensRevision,
+    changerOnglet, ouvrirFormulaireNote, gestionMatiereForm,
+    fermerFormulaireNote, fermerFormulaireNoteSiFond,
+    enregistrerFormulaireNote, supprimerDepuisFormulaire,
+    mettreAJourSliderLocal, mettreAJourSliderCommit,
+    gestionMatiereSimu, calculerToutesProjections, ouvrirFicheClaude
+});
+</script>
+
+</body>
+</html>

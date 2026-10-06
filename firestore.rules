@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function estParent() {
+      return request.auth != null
+        && request.auth.uid in get(/databases/$(database)/documents/family/config).data.parentUids;
+    }
+
+    function estEleveDuProfil() {
+      return request.auth != null && resource.data.uid == request.auth.uid;
+    }
+
+    // Liste des parents : lecture seule, modifiable uniquement depuis la console Firebase
+    match /family/config {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /children/{childId} {
+      // Le parent lit tous les profils ; un élève ne lit que le sien
+      allow read: if estParent() || estEleveDuProfil();
+
+      // L'élève peut modifier son profil mais pas le rattachement (uid)
+      allow update: if estParent()
+        || (estEleveDuProfil() && request.resource.data.uid == resource.data.uid);
+
+      allow create, delete: if estParent();
+    }
+  }
+}
