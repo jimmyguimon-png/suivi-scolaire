@@ -122,6 +122,12 @@
         .trend.up { color: var(--success); }
         .trend.down { color: var(--danger); }
 
+        .subject-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 4px 6px; border-bottom: 1px solid var(--border); }
+        .subject-name { font-weight: 700; font-size: 14px; }
+        .subject-avg { font-weight: 700; font-size: 12px; padding: 3px 8px; border-radius: 8px; white-space: nowrap; }
+        .subject-avg.high { color: var(--success); background: var(--success-bg); }
+        .subject-avg.mid { color: var(--warn); background: rgba(184,134,11,0.1); }
+        .subject-avg.low { color: var(--danger); background: var(--danger-bg); }
         .empty-notes { text-align: center; padding: 20px 8px; color: var(--subtext); font-size: 13px; }
 
         /* --- Boutons --- */
@@ -315,7 +321,7 @@
                     <select id="simu-matiere-select" aria-label="Matière simulée" onchange="gestionMatiereSimu(this.value)">
                         <option value="">Matière...</option>
                     </select>
-                    <input type="text" id="simu-matiere-custom" placeholder="Autre matière..." aria-label="Autre matière" style="display: none;" oninput="genererLiensRevision()">
+                    <input type="text" id="simu-matiere-custom" placeholder="Autre matière..." aria-label="Autre matière" style="display: none;" oninput="genererLiensRevision(); calculerToutesProjections()">
                 </div>
                 <div class="simu-group" style="margin-top: 8px;">
                     <input type="text" id="simu-theme" placeholder="Thème ou chapitre" aria-label="Thème ou chapitre" oninput="genererLiensRevision()">
@@ -648,19 +654,35 @@ function appliquerOnglet() {
 }
 
 // --- Notes & calculs ---
-function getMoyenneGeneraleNumerique() {
-    const c = getActiveChild();
-    if (!c || !c.notes) return 0;
-    let pts = 0, coeffs = 0;
-    c.notes.forEach(i => { pts += i.note * i.coeff; coeffs += i.coeff; });
-    return coeffs > 0 ? pts / coeffs : 0;
-}
 function nomMatiereAffiche(item) {
     return item.matiere === "AUTRE" ? (item.customMatiere || "Autre") : item.matiere;
 }
 function echapper(t) {
     return String(t).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
 }
+
+// Moyenne de chaque matière (pondérée par le coefficient des notes de la matière)
+function moyennesParMatiere(notes) {
+    const map = new Map();
+    (notes || []).forEach(n => {
+        const k = nomMatiereAffiche(n);
+        const m = map.get(k) || { points: 0, coeffs: 0 };
+        m.points += n.note * n.coeff;
+        m.coeffs += n.coeff;
+        map.set(k, m);
+    });
+    return map;
+}
+// Moyenne générale = moyenne des moyennes de matières
+function calculerMoyenneGenerale(map) {
+    let somme = 0, n = 0;
+    map.forEach(m => { if (m.coeffs > 0) { somme += m.points / m.coeffs; n++; } });
+    return { somme, n, moyenne: n > 0 ? somme / n : 0 };
+}
+function getMoyenneGeneraleNumerique() {
+    return calculerMoyenneGenerale(moyennesParMatiere(getActiveChild()?.notes)).moyenne;
+}
+function classeNote(v) { return v >= 14 ? "high" : (v < 10 ? "low" : "mid"); }
 
 function afficherNotes() {
     const c = getActiveChild();
@@ -670,46 +692,63 @@ function afficherNotes() {
 
     const notes = c.notes || [];
     show("notes-empty", notes.length === 0);
-    const moyenneActuelle = getMoyenneGeneraleNumerique();
+    const moyennes = moyennesParMatiere(notes);
 
+    const groupes = new Map();
     notes.forEach((item, index) => {
-        let badgeClass = "mid";
-        if (item.note >= 14) badgeClass = "high";
-        else if (item.note < 10) badgeClass = "low";
+        const k = nomMatiereAffiche(item);
+        if (!groupes.has(k)) groupes.set(k, []);
+        groupes.get(k).push({ item, index });
+    });
 
-        let trendSymbol = "–", trendClass = "";
-        if (moyenneActuelle > 0) {
-            if (item.note > moyenneActuelle) { trendSymbol = "↑"; trendClass = "up"; }
-            else if (item.note < moyenneActuelle) { trendSymbol = "↓"; trendClass = "down"; }
-        }
+    groupes.forEach((liste, matiere) => {
+        const m = moyennes.get(matiere);
+        const moy = m.coeffs > 0 ? m.points / m.coeffs : 0;
 
-        const row = document.createElement("div");
-        row.className = "note-row";
-        row.onclick = () => ouvrirFormulaireNote(index);
-        row.innerHTML = `
-            <div class="note-main">
-                <div class="note-matiere">${echapper(nomMatiereAffiche(item))}</div>
-                <div class="note-meta">Coefficient ${item.coeff}</div>
-            </div>
-            <span class="trend ${trendClass}">${trendSymbol}</span>
-            <span class="note-badge ${badgeClass}">${item.note}/20</span>`;
-        container.appendChild(row);
+        const head = document.createElement("div");
+        head.className = "subject-head";
+        head.innerHTML = `<span class="subject-name">${echapper(matiere)}</span>`
+            + `<span class="subject-avg ${classeNote(moy)}">Moyenne ${moy.toFixed(2)}/20</span>`;
+        container.appendChild(head);
+
+        liste.forEach(({ item, index }) => {
+            let trendSymbol = "–", trendClass = "";
+            if (liste.length > 1) {
+                if (item.note > moy) { trendSymbol = "↑"; trendClass = "up"; }
+                else if (item.note < moy) { trendSymbol = "↓"; trendClass = "down"; }
+            }
+            const row = document.createElement("div");
+            row.className = "note-row";
+            row.onclick = () => ouvrirFormulaireNote(index);
+            row.innerHTML = `
+                <div class="note-main">
+                    <div class="note-meta">Coefficient ${item.coeff}</div>
+                </div>
+                <span class="trend ${trendClass}">${trendSymbol}</span>
+                <span class="note-badge ${classeNote(item.note)}">${item.note}/20</span>`;
+            container.appendChild(row);
+        });
     });
     calculerMoyenne();
 }
 
+function majSousTitreObjectif(objectif, nbMatieres) {
+    const suffixe = nbMatieres > 0 ? ` · ${nbMatieres} matière${nbMatieres > 1 ? "s" : ""}` : "";
+    $("dashboard-objectif-sub").innerText = "Objectif : " + objectif.toFixed(1) + " / 20" + suffixe;
+}
+
 function calculerMoyenne() {
     const c = getActiveChild();
-    let totalPoints = 0, totalCoeffs = 0;
-    (c?.notes || []).forEach(i => { totalPoints += i.note * i.coeff; totalCoeffs += i.coeff; });
-    $("moyenne-generale").innerText = totalCoeffs === 0 ? "-- / 20" : (totalPoints / totalCoeffs).toFixed(2) + " / 20";
-    $("dashboard-objectif-sub").innerText = "Objectif : " + (c?.objectif ?? 14).toFixed(1) + " / 20";
-    calculerToutesProjections(totalCoeffs > 0 ? totalPoints / totalCoeffs : 0, totalCoeffs);
+    const g = calculerMoyenneGenerale(moyennesParMatiere(c?.notes));
+    $("moyenne-generale").innerText = g.n === 0 ? "-- / 20" : g.moyenne.toFixed(2) + " / 20";
+    majSousTitreObjectif(c?.objectif ?? 14, g.n);
+    calculerToutesProjections();
 }
 
 function mettreAJourSliderLocal(valeur) {
     $("target-display").innerText = parseFloat(valeur).toFixed(1) + " / 20";
-    $("dashboard-objectif-sub").innerText = "Objectif : " + parseFloat(valeur).toFixed(1) + " / 20";
+    const g = calculerMoyenneGenerale(moyennesParMatiere(getActiveChild()?.notes));
+    majSousTitreObjectif(parseFloat(valeur), g.n);
     calculerToutesProjections();
 }
 async function mettreAJourSliderCommit(valeur) {
@@ -717,42 +756,64 @@ async function mettreAJourSliderCommit(valeur) {
     try { await updateDoc(refActive(), { objectif: parseFloat(valeur) }); } catch (e) { afficherToast("Enregistrement impossible."); }
 }
 
-function calculerToutesProjections(moyenneActuelle, totalCoeffsActuel) {
-    if (moyenneActuelle === undefined) {
-        let pts = 0, coeffs = 0;
-        (getActiveChild()?.notes || []).forEach(i => { pts += i.note * i.coeff; coeffs += i.coeff; });
-        moyenneActuelle = coeffs > 0 ? pts / coeffs : 0;
-        totalCoeffsActuel = coeffs;
+// Note minimale à obtenir (coeff 1) dans une matière pour atteindre l'objectif
+function noteRequise(map, g, matiere, objectif) {
+    const m = map.get(matiere);
+    if (m && m.coeffs > 0) {
+        const a = m.points / m.coeffs;
+        return (objectif * g.n - g.somme + a) * (m.coeffs + 1) - m.points;
     }
-    const pointsActuels = moyenneActuelle * totalCoeffsActuel;
-    const objectif = parseFloat($("objectif-slider").value) || 14;
+    return objectif * (g.n + 1) - g.somme;
+}
+// Moyenne générale si l'on ajoute une note (coeff donné) dans une matière
+function moyenneApresAjout(map, matiere, note, coeff) {
+    const copie = new Map(map);
+    const m = map.get(matiere) || { points: 0, coeffs: 0 };
+    copie.set(matiere, { points: m.points + note * coeff, coeffs: m.coeffs + coeff });
+    return calculerMoyenneGenerale(copie);
+}
+
+function calculerToutesProjections() {
+    const map = moyennesParMatiere(getActiveChild()?.notes);
+    const g = calculerMoyenneGenerale(map);
+    const sliderVal = parseFloat($("objectif-slider").value);
+    const objectif = isNaN(sliderVal) ? 14 : sliderVal;
+    const matiere = getMatiereSimuSelectionnee();
     const elemA = $("projection-a-texte");
 
-    if (totalCoeffsActuel === 0) {
+    if (g.n === 0) {
         elemA.innerText = "Ajoutez au moins une note pour calculer une projection.";
-    } else if (moyenneActuelle >= objectif) {
-        elemA.innerHTML = `Objectif atteint ! Gardez au moins <strong>${objectif}/20</strong> aux prochains devoirs.`;
+    } else if (g.moyenne >= objectif) {
+        elemA.innerHTML = `Objectif atteint ! Gardez une moyenne générale d'au moins <strong>${objectif}/20</strong>.`;
+    } else if (!matiere) {
+        elemA.innerText = "Choisissez une matière dans le simulateur ci-dessous pour connaître la note à obtenir.";
     } else {
-        const noteReq = objectif * (totalCoeffsActuel + 1) - pointsActuels;
-        if (noteReq > 20) {
-            const maxAtteignable = (pointsActuels + 20) / (totalCoeffsActuel + 1);
-            elemA.innerHTML = `Un seul 20/20 (coeff 1) monterait la moyenne à <strong>${maxAtteignable.toFixed(2)}/20</strong>. Plusieurs bonnes notes nécessaires !`;
+        const requis = noteRequise(map, g, matiere, objectif);
+        if (requis > 20) {
+            const maxAtteignable = moyenneApresAjout(map, matiere, 20, 1).moyenne;
+            elemA.innerHTML = `Même un 20/20 (coeff 1) en ${echapper(matiere)} ne suffit pas : la moyenne générale monterait à <strong>${maxAtteignable.toFixed(2)}/20</strong>. Plusieurs bonnes notes nécessaires !`;
         } else {
-            elemA.innerHTML = `Obtenez au moins <strong>${noteReq.toFixed(2)}/20</strong> au prochain devoir (coeff 1) pour atteindre l'objectif.`;
+            elemA.innerHTML = `Obtenez au moins <strong>${Math.max(requis, 0).toFixed(2)}/20</strong> au prochain devoir (coeff 1) en ${echapper(matiere)} pour atteindre l'objectif.`;
         }
     }
 
     const simuNote = parseFloat($("simu-note").value);
     const simuCoeff = parseFloat($("simu-coeff").value) || 1;
     const elemB = $("projection-b-texte");
-    if (!isNaN(simuNote)) {
-        const nouvelleMoyenne = (pointsActuels + simuNote * simuCoeff) / (totalCoeffsActuel + simuCoeff);
-        const diff = nouvelleMoyenne - moyenneActuelle;
-        const signe = diff >= 0 ? "+" : "";
-        const couleur = diff >= 0 ? "var(--success)" : "var(--danger)";
-        elemB.innerHTML = `Avec un <strong>${simuNote}/20</strong> (coeff ${simuCoeff}), la moyenne passe à <strong>${nouvelleMoyenne.toFixed(2)}/20</strong> (<span style="color:${couleur}">${signe}${diff.toFixed(2)} pt</span>).`;
-    } else {
+    if (isNaN(simuNote)) {
         elemB.innerText = "Saisissez une note et un coeff pour simuler l'impact.";
+    } else if (!matiere) {
+        elemB.innerText = "Choisissez la matière du devoir pour simuler l'impact.";
+    } else {
+        const apres = moyenneApresAjout(map, matiere, simuNote, simuCoeff);
+        if (g.n === 0) {
+            elemB.innerHTML = `Avec un <strong>${simuNote}/20</strong> (coeff ${simuCoeff}) en ${echapper(matiere)}, la moyenne générale serait de <strong>${apres.moyenne.toFixed(2)}/20</strong>.`;
+        } else {
+            const diff = apres.moyenne - g.moyenne;
+            const signe = diff >= 0 ? "+" : "";
+            const couleur = diff >= 0 ? "var(--success)" : "var(--danger)";
+            elemB.innerHTML = `Avec un <strong>${simuNote}/20</strong> (coeff ${simuCoeff}) en ${echapper(matiere)}, la moyenne générale passe à <strong>${apres.moyenne.toFixed(2)}/20</strong> (<span style="color:${couleur}">${signe}${diff.toFixed(2)} pt</span>).`;
+        }
     }
 }
 
@@ -824,7 +885,7 @@ async function supprimerDepuisFormulaire() {
 }
 
 // --- Simulation / révision ---
-function gestionMatiereSimu(v) { show("simu-matiere-custom", v === "AUTRE"); genererLiensRevision(); }
+function gestionMatiereSimu(v) { show("simu-matiere-custom", v === "AUTRE"); genererLiensRevision(); calculerToutesProjections(); }
 function getMatiereSimuSelectionnee() {
     const v = $("simu-matiere-select").value;
     return v === "AUTRE" ? $("simu-matiere-custom").value.trim() : v;
