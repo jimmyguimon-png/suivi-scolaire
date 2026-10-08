@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Suivi Scolaire</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#3D5AFE">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Suivi Scolaire">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" href="icon-192.png">
 
     <style>
         :root {
@@ -54,7 +62,7 @@
             background: var(--bg);
             color: var(--text);
             margin: 0;
-            padding: 20px 16px 40px;
+            padding: calc(20px + env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom));
             display: flex;
             justify-content: center;
             -webkit-font-smoothing: antialiased;
