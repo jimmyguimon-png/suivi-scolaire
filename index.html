@@ -340,7 +340,7 @@
                 </div>
                 <div class="info-box" id="projection-b-texte">Saisissez une note et un coeff pour simuler l'impact.</div>
 
-                <button class="btn btn-primary" style="margin-top: 12px;" onclick="ouvrirFicheClaude()">Un coup de pouce ? Fiche de révision avec Claude</button>
+                <button class="btn btn-primary" style="margin-top: 12px;" onclick="ouvrirFicheRevision()">Un coup de pouce ? Fiche de révision avec ChatGPT</button>
 
                 <h2 class="section-title" style="margin-top: 16px;">Pour aller plus loin</h2>
                 <div class="link-row">
@@ -904,7 +904,7 @@ function genererLiensRevision() {
     $("link-kartable").href = `https://www.kartable.fr/recherche?q=${q}`;
 }
 
-function ouvrirFicheClaude() {
+function ouvrirFicheRevision() {
     const classe = $("classe").value || "Collège/Lycée";
     const matiere = getMatiereSimuSelectionnee() || "Matière générale";
     const theme = $("simu-theme").value.trim() || "Révision générale";
@@ -918,7 +918,7 @@ Contenu attendu :
 3. L'erreur classique à éviter en évaluation.
 
 Rédige le tout de façon concise, claire et directe.`;
-    window.open("https://claude.ai/new?q=" + encodeURIComponent(prompt), "_blank", "noopener");
+    window.open("https://chatgpt.com/?q=" + encodeURIComponent(prompt), "_blank", "noopener");
 }
 
 function afficherToast(message) {
@@ -937,7 +937,7 @@ Object.assign(window, {
     fermerFormulaireNote, fermerFormulaireNoteSiFond,
     enregistrerFormulaireNote, supprimerDepuisFormulaire,
     mettreAJourSliderLocal, mettreAJourSliderCommit,
-    gestionMatiereSimu, calculerToutesProjections, ouvrirFicheClaude
+    gestionMatiereSimu, calculerToutesProjections, ouvrirFicheRevision
 });
 </script>
 
