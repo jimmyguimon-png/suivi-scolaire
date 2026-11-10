@@ -211,6 +211,7 @@
         <div class="info-box danger" id="auth-error" style="display:none;"></div>
         <button class="btn btn-primary" style="margin-top:12px;" id="auth-submit" onclick="soumettreAuth()">Se connecter</button>
         <button class="btn btn-text" id="auth-switch" onclick="basculerModeAuth()">Créer un compte</button>
+        <button class="btn btn-text" id="auth-reset" onclick="motDePasseOublie()">Mot de passe oublié ?</button>
     </div>
 
     <!-- Compte non rattaché -->
@@ -389,7 +390,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
     getAuth, onAuthStateChanged, signInWithEmailAndPassword,
-    createUserWithEmailAndPassword, signOut
+    createUserWithEmailAndPassword, signOut, sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
     getFirestore, doc, getDoc, collection, query, where, orderBy,
@@ -514,6 +515,7 @@ function basculerModeAuth() {
     $("auth-submit").innerText = modeInscription ? "Créer le compte" : "Se connecter";
     $("auth-switch").innerText = modeInscription ? "J'ai déjà un compte" : "Créer un compte";
     $("auth-pass").autocomplete = modeInscription ? "new-password" : "current-password";
+    show("auth-reset", !modeInscription);
     show("auth-error", false);
 }
 
@@ -541,6 +543,19 @@ async function soumettreAuth() {
         else await signInWithEmailAndPassword(auth, email, pass);
         $("auth-pass").value = "";
     } catch (e) { afficherErreurAuth(messageErreurAuth(e.code)); }
+}
+async function motDePasseOublie() {
+    const email = $("auth-email").value.trim();
+    show("auth-error", false);
+    if (!email) { afficherErreurAuth("Saisissez d'abord votre adresse e-mail, puis touchez « Mot de passe oublié ? »."); return; }
+    try {
+        await sendPasswordResetEmail(auth, email);
+        afficherToast("Si un compte existe, un e-mail de réinitialisation vient d'être envoyé.");
+    } catch (e) {
+        if (e.code === "auth/invalid-email") afficherErreurAuth("Adresse e-mail invalide.");
+        else if (e.code === "auth/too-many-requests") afficherErreurAuth("Trop de tentatives — réessayez dans quelques minutes.");
+        else afficherToast("Si un compte existe, un e-mail de réinitialisation vient d'être envoyé.");
+    }
 }
 function afficherErreurAuth(msg) { $("auth-error").innerText = msg; show("auth-error", true); }
 async function deconnexion() { await signOut(auth); }
@@ -930,7 +945,7 @@ function afficherToast(message) {
 
 // Exposition pour les gestionnaires inline (onclick, oninput…)
 Object.assign(window, {
-    deconnexion, soumettreAuth, basculerModeAuth, copierUid,
+    deconnexion, soumettreAuth, basculerModeAuth, motDePasseOublie, copierUid,
     ajouterEnfant, supprimerEnfant, toggleProfil,
     sauvegarderProfilDebounce, sauvegarderProfilImmediat, genererLiensRevision,
     changerOnglet, ouvrirFormulaireNote, gestionMatiereForm,
